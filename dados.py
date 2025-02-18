@@ -5,9 +5,20 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
-import time
 import os
+import time
 from keys import email_, senha_
+
+# Função para verificar se o arquivo foi baixado
+def is_downloaded(filename, timeout=30):
+    download_dir = os.path.abspath("./data")
+    file_path = os.path.join(download_dir, filename)
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        if os.path.exists(file_path):
+            return True
+        time.sleep(1)
+    return False
 
 # Configuração do Selenium para usar o ChromeDriver
 options = webdriver.ChromeOptions()
@@ -34,55 +45,45 @@ url_fretes = "https://novacentral.fretebras.com.br/meus-fretes"
 try:
     print("Abrindo a página de login...")
     driver.get(url_login)
-    time.sleep(2)
 
     print("Aguardando o campo de e-mail (input real) ficar visível...")
     username_input = WebDriverWait(driver, 15).until(
         EC.visibility_of_element_located((By.ID, "username"))
     )
-    time.sleep(1)
     print("Campo de e-mail visível. Enviando e-mail...")
     username_input.clear()
-    time.sleep(1)
     username_input.send_keys(email_)
-    print("E-mail inserido.")
-    time.sleep(1)
 
     print("Aguardando o campo de senha (input real) ficar visível...")
     password_input = WebDriverWait(driver, 15).until(
         EC.visibility_of_element_located((By.ID, "password"))
     )
-    time.sleep(1)
     print("Campo de senha visível. Enviando senha...")
     password_input.clear()
-    time.sleep(1)
     password_input.send_keys(senha_ + Keys.RETURN)
-    print("Senha inserida e login enviado.")
-    time.sleep(3)
 
     print("Aguardando redirecionamento após login...")
     WebDriverWait(driver, 15).until(
         EC.url_contains("fretebras.com.br")
     )
     print("Redirecionamento detectado.")
-    time.sleep(2)
 
     print("Acessando a página de fretes...")
     driver.get(url_fretes)
-    time.sleep(2)
 
     print("Aguardando o botão 'Download da listagem' ficar presente...")
-    # Seleciona o elemento pelo seletor do componente customizado
+    # Usando XPath refinado para garantir a seleção do botão correto
     download_button = WebDriverWait(driver, 15).until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, "fuel-button[variant='secondary']"))
+        EC.presence_of_element_located((By.XPATH, "//fuel-button[normalize-space(text())='Download da listagem' and @variant='secondary' and @disabled='false']"))
     )
-    time.sleep(1)
     print("Botão 'Download da listagem' encontrado. Tentando clicar via JavaScript...")
     driver.execute_script("arguments[0].click();", download_button)
-    print("Clique efetuado.")
-    
-    time.sleep(10)  # Tempo para o download
-    print("Download concluído: fretes.xls salvo em ./data")
+
+    print("Aguardando o download ser concluído...")
+    if is_downloaded("fretes.xls"):
+        print("Download concluído: fretes.xls salvo em ./data")
+    else:
+        print("Erro: O download não foi concluído dentro do tempo esperado.")
 
 except Exception as e:
     print(f"Erro ao baixar o arquivo: {e}")
