@@ -1,3 +1,6 @@
+import os
+import time
+import shutil
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -5,20 +8,32 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
-import os
-import time
 from keys import email_, senha_
 
 # Função para verificar se o arquivo foi baixado
-def is_downloaded(filename, timeout=30):
+def is_downloaded(filename="fretes.xls", timeout=5):
     download_dir = os.path.abspath("./data")
-    file_path = os.path.join(download_dir, filename)
     start_time = time.time()
     while time.time() - start_time < timeout:
-        if os.path.exists(file_path):
-            return True
+        # Verifica se algum arquivo está presente no diretório de download
+        files = os.listdir(download_dir)
+        if len(files) == 1:  # Espera que haja apenas um arquivo na pasta
+            return files[0]
         time.sleep(1)
-    return False
+    return None
+
+# Função para renomear e mover o arquivo para a pasta xls
+def rename_and_move_file(downloaded_filename):
+    xls_dir = os.path.join(os.path.abspath("./data"), "xls")
+    if not os.path.exists(xls_dir):
+        os.makedirs(xls_dir)
+    
+    old_path = os.path.join(os.path.abspath("./data"), downloaded_filename)
+    new_path = os.path.join(xls_dir, "fretes.xls")
+    
+    # Renomeia o arquivo para "fretes.xls" e move para a pasta xls
+    shutil.move(old_path, new_path)
+    print(f"Arquivo renomeado e movido para: {new_path}")
 
 # Configuração do Selenium para usar o ChromeDriver
 options = webdriver.ChromeOptions()
@@ -80,8 +95,11 @@ try:
     driver.execute_script("arguments[0].click();", download_button)
 
     print("Aguardando o download ser concluído...")
-    if is_downloaded("fretes.xls"):
-        print("Download concluído: fretes.xls salvo em ./data")
+    downloaded_filename = is_downloaded("fretes.xls", timeout=5)
+
+    if downloaded_filename:
+        print(f"Arquivo {downloaded_filename} baixado.")
+        rename_and_move_file(downloaded_filename)  # Renomeia e move o arquivo
     else:
         print("Erro: O download não foi concluído dentro do tempo esperado.")
 
