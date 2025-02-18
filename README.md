@@ -76,7 +76,7 @@ Este projeto usa o **whatsapp-web.js**, uma biblioteca Node.js para interagir co
 - `express`: Para servidor web (caso queira expandir a funcionalidade).
 - `axios`: Para realizar chamadas HTTP, se necessário.
 Caso o qr code não apareça execute:
-- `m -rf .wwebjs_auth .wwebjs_cachehe`
+- `rm -rf .wwebjs_auth .wwebjs_cachehe`
 ## Contribuição
 Sinta-se à vontade para contribuir! Envie um pull request ou abra uma issue caso encontre problemas ou tenha sugestões.
 

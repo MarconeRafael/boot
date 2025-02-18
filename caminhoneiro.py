@@ -2,39 +2,26 @@ import openai
 import sys
 import pandas as pd
 from keys import chave_openai  # Supondo que a chave da API está em um arquivo separado
+from calcula import calcula_fretes  # Importando a função calcula_fretes
 
 openai.api_key = chave_openai  # Definindo a chave da API para o OpenAI
 
-# Lê a lista de fretes do arquivo XLSX
+# Lê a lista de fretes do arquivo Excel
 try:
-    fretes_df = pd.read_excel("data/xls/fretes.xlsx", engine="openpyxl")  # Lendo o arquivo
-
-    # Remove espaços extras no nome das colunas
-    fretes_df.columns = fretes_df.columns.str.strip()
-
-    # Seleciona apenas as colunas relevantes
-    fretes_df = fretes_df[["Origem", "Destino", "Carga", "Preço"]]
-
-    # Substitui vírgula decimal por ponto e remove pontos separadores de milhar
-    fretes_df["Preço"] = fretes_df["Preço"].astype(str).str.replace(".", "", regex=False).str.replace(",", ".", regex=False)
-
-    # Converte "Preço" para número (agora que está corrigido)
-    fretes_df["Preço"] = pd.to_numeric(fretes_df["Preço"], errors="coerce")
-
-    # Remove linhas com preço inválido
+    # Usando openpyxl para ler arquivos .xlsx
+    fretes_df = pd.read_excel("data/xls/fretes.xlsx", engine="openpyxl")
+    
+    # Garantir que a coluna 'Preço' seja numérica
+    fretes_df["Preço"] = pd.to_numeric(fretes_df["Preço"], errors="coerce")  # Converte para numérico, substituindo erros por NaN
+    
+    # Remover valores NaN da coluna de preço
     fretes_df = fretes_df.dropna(subset=["Preço"])
-
-    # Cria o dicionário de fretes
-    fretes_dict = {
-        (row["Origem"], row["Destino"], row["Carga"]): row["Preço"]
-        for _, row in fretes_df.iterrows()
-    }
-
-    lista_fretes_str = ", ".join(
-        f"De {origem} para {destino}, transportando {carga} por R${preco:.2f}"
-        for (origem, destino, carga), preco in fretes_dict.items()
-    )
-
+    
+    # Criando o dicionário de destinos e preços
+    fretes_dict = dict(zip(fretes_df["Destino"].dropna(), fretes_df["Preço"].dropna()))
+    
+    # Gerar a lista de fretes
+    lista_fretes_str = ", ".join(f"{destino} (R${preco:.2f})" for destino, preco in fretes_dict.items())
 except Exception as e:
     fretes_dict = {}  # Se houver erro, não há destinos disponíveis
     lista_fretes_str = "Nenhuma viagem disponível no momento."
@@ -42,8 +29,8 @@ except Exception as e:
 
 def chat_with_trucker(prompt, conversation_history=[]):
     system_message = (
-        "Fale informalmente com bom humor. "
-        "Responda de forma descontraída, curta como um caminhoneiro conversando e negociando. "
+        "Você é um caminhoneiro experiente que adora imitar pessoas e tem um jeito bem típico de falar. "
+        "Responda de forma descontraída, curta e divertida, como um caminhoneiro conversando e negociando. "
         "Se perguntarem sobre fretes, use os seguintes valores: {lista}. "
         "Caso perguntem sobre um destino que não está na lista, avise que só temos essas opções disponíveis. "
         "Mantenha o contexto da conversa para que as respostas façam sentido dentro do diálogo em andamento. "
@@ -52,15 +39,30 @@ def chat_with_trucker(prompt, conversation_history=[]):
     
     conversation_history.append({"role": "user", "content": prompt})
 
-    # Verifica se o usuário está perguntando sobre um frete e retorna o valor correspondente
-    for (origem, destino, carga), preco in fretes_dict.items():
-        if destino.lower() in prompt.lower() or origem.lower() in prompt.lower():
-            reply = (
-                f"Olha, parceiro, tem um frete de {origem} pra {destino}, "
-                f"levando {carga}, pagando R${preco:.2f}. Se topar, é só falar!"
-            )
-            conversation_history.append({"role": "assistant", "content": reply})
-            return reply
+    # Perguntar os detalhes do caminhão (tipo, comprimento, etc.)
+    if 'informações do caminhão' in prompt.lower():
+        reply = "Claro, parceiro! Me fala aí o tipo do seu caminhão (aberto ou baú) e o comprimento dele. A largura é sempre 2,2 metros e a altura você também pode me dizer se tiver uma diferente de 2,2 metros."
+        conversation_history.append({"role": "assistant", "content": reply})
+        return reply
+
+    # Processar as informações do caminhão
+    if 'tipo_caminhao' in prompt.lower() and 'comprimento' in prompt.lower():
+        # Extrair dados do prompt (simplificando o processo aqui, mas pode ser feito com regex ou outro método)
+        tipo_caminhao = "aberto"  # Exemplo, isso precisa ser extraído da conversa do usuário
+        comprimento_caminhao = 10.0  # Exemplo, esse valor precisa ser extraído
+        altura_caminhao = 2.2  # Valor fixo
+        largura_caminhao = 2.2  # Valor fixo
+
+        # Chama a função calcula_fretes
+        fretes_possiveis = calcula_fretes(fretes_df.to_dict(orient='records'), tipo_caminhao, comprimento_caminhao, largura_caminhao, altura_caminhao)
+
+        if fretes_possiveis:
+            fretes_resposta = "\n".join([f"Tipo de telha: {frete['tipo_telha']}, Quantidade: {frete['quantidade_telhas']}, Comprimento das telhas: {frete['comprimento_telha']} metros" for frete in fretes_possiveis])
+            reply = f"Esses são os fretes que seu caminhão pode realizar:\n{fretes_resposta}"
+        else:
+            reply = "Infelizmente, o seu caminhão não comporta os fretes disponíveis no momento."
+        conversation_history.append({"role": "assistant", "content": reply})
+        return reply
 
     # Se confirmar um negócio
     if any(term in prompt.lower() for term in ["fechado", "concordo", "topo", "negócio fechado"]):
