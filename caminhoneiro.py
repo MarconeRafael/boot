@@ -7,28 +7,35 @@ openai.api_key = chave_openai  # Definindo a chave da API para o OpenAI
 
 # Lê a lista de fretes do arquivo Excel
 try:
-    fretes_df = pd.read_excel("data/fretes.xls")
-    # Supondo que a coluna com os destinos se chame "Viagem"
-    lista_fretes = fretes_df["Viagem"].dropna().tolist()
-    lista_fretes_str = ", ".join(lista_fretes)
+    fretes_df = pd.read_excel("data/fretes.xls", engine="xlrd")  # Para arquivos .xls
+    # Supondo que as colunas sejam "Viagem" (destino) e "Preço" (valor máximo)
+    fretes_dict = dict(zip(fretes_df["Viagem"].dropna(), fretes_df["Preço"].dropna()))
+    lista_fretes_str = ", ".join(f"{destino} (R${preco:.2f})" for destino, preco in fretes_dict.items())
 except Exception as e:
-    lista_fretes_str = "Ceará, Rio de Janeiro"  # Valores padrão, se houver erro na leitura
+    fretes_dict = {}  # Se houver erro, não há destinos disponíveis
+    lista_fretes_str = "Nenhuma viagem disponível no momento."
     print(f"Erro ao ler a lista de fretes: {e}")
 
 def chat_with_trucker(prompt, conversation_history=[]):
     system_message = (
         "Você é um caminhoneiro experiente que adora imitar pessoas e tem um jeito bem típico de falar. "
         "Responda de forma descontraída, curta e divertida, como um caminhoneiro conversando e negociando. "
-        "Se perguntarem sobre uma viagem até o Ceará, diga que o máximo que podemos pagar é R$1400. "
-        "Se perguntarem sobre uma viagem até o Rio de Janeiro, diga que o máximo que podemos pagar é R$5000. "
-        "Se perguntar sobre uma viagem não listada, fale que temos apenas essas opções: {lista}. "
+        "Se perguntarem sobre fretes, use os seguintes valores: {lista}. "
+        "Caso perguntem sobre um destino que não está na lista, avise que só temos essas opções disponíveis. "
         "Mantenha o contexto da conversa para que as respostas façam sentido dentro do diálogo em andamento. "
         "Se o usuário confirmar um negócio, reconheça e finalize a negociação com uma resposta apropriada."
     ).format(lista=lista_fretes_str)
     
     conversation_history.append({"role": "user", "content": prompt})
-    
-    # Checa se o usuário está confirmando um negócio
+
+    # Verifica se o usuário está perguntando sobre um frete e retorna o valor correspondente
+    for destino, preco in fretes_dict.items():
+        if destino.lower() in prompt.lower():
+            reply = f"Olha, parceiro, pra {destino} eu posso pagar no máximo R${preco:.2f}. Se topar, é só falar!"
+            conversation_history.append({"role": "assistant", "content": reply})
+            return reply
+
+    # Se confirmar um negócio
     if any(term in prompt.lower() for term in ["fechado", "concordo", "topo", "negócio fechado"]):
         reply = "Maravilha, compadre! Negócio fechado! Vou ajeitar o caminhão e partir pra estrada. Valeu pela confiança!"
     else:

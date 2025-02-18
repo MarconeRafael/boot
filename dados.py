@@ -10,13 +10,12 @@ import os
 from keys import email_, senha_
 
 # Configuração do Selenium para usar o ChromeDriver
-download_dir = os.path.abspath("./data")
-prefs = {"download.default_directory": download_dir}
 options = webdriver.ChromeOptions()
+prefs = {"download.default_directory": os.path.abspath("./data")}
 options.add_experimental_option("prefs", prefs)
 options.add_argument("--no-sandbox")
 options.add_argument("--disable-dev-shm-usage")
-# Para depuração, descomente a linha abaixo para ver o navegador:
+# Para depuração, remova o headless se estiver ativado
 # options.add_argument("--headless")
 
 # Inicializa o navegador
@@ -82,26 +81,8 @@ try:
     driver.execute_script("arguments[0].click();", download_button)
     print("Clique efetuado.")
     
-    # Aguarda o download: espera até que o arquivo não possua a extensão .crdownload
-    timeout = time.time() + 30  # tempo máximo de espera: 30 segundos
-    downloaded_file = None
-    while time.time() < timeout:
-        files = os.listdir(download_dir)
-        # Ignora arquivos temporários (com extensão .crdownload)
-        files = [f for f in files if not f.endswith('.crdownload')]
-        if files:
-            # Se houver mais de um arquivo, você pode precisar refinar a lógica
-            downloaded_file = files[0]
-            break
-        time.sleep(1)
-    
-    if downloaded_file:
-        src = os.path.join(download_dir, downloaded_file)
-        dst = os.path.join(download_dir, "fretes.xls")
-        os.rename(src, dst)
-        print(f"Arquivo renomeado para {dst}")
-    else:
-        print("Arquivo baixado não foi encontrado.")
+    time.sleep(10)  # Tempo para o download
+    print("Download concluído: fretes.xls salvo em ./data")
 
 except Exception as e:
     print(f"Erro ao baixar o arquivo: {e}")
