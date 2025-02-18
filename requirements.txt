@@ -1,0 +1,9 @@
+openai==0.28
+pywhatkit
+yowsup
+flask
+qrcode-terminal
+whatsapp-web.js
+qrcode-terminal
+express
+axios
