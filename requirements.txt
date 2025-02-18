@@ -7,3 +7,5 @@ whatsapp-web.js
 qrcode-terminal
 express
 axios
+selenium webdriver-manager
+pandas
